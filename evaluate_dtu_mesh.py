@@ -138,7 +138,7 @@ def cull_mesh(cameras, mesh):
     return mesh_clean
 
 
-def evaluate_mesh(dataset : ModelParams, iteration : int, DTU_PATH : str):
+def evaluate_mesh(dataset : ModelParams, iteration : int, DTU_PATH : str, scan_id : str):
     
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -171,21 +171,23 @@ def evaluate_mesh(dataset : ModelParams, iteration : int, DTU_PATH : str):
     
     mesh = trimesh.load(mesh_file)
     
-    mesh = cull_mesh(train_cameras, mesh)
-    
     culled_mesh_file = os.path.join(dataset.model_path, "test/ours_{}".format(iteration), mesh_dir, filename.replace(".ply", "_culled.ply"))
+    aligned_mesh_file = os.path.join(dataset.model_path, "test/ours_{}".format(iteration), mesh_dir, filename.replace(".ply", "_aligned.ply"))
+    
+    # cull mesh
+    mesh = cull_mesh(train_cameras, mesh)
     mesh.export(culled_mesh_file)
     
     # align the mesh
     mesh.vertices = mesh.vertices * scale_gt_points / scale_points
     mesh.vertices = mesh.vertices @ r.T + t
     
-    aligned_mesh_file = os.path.join(dataset.model_path, "test/ours_{}".format(iteration), mesh_dir, filename.replace(".ply", "_aligned.ply"))
     mesh.export(aligned_mesh_file)
         
     # evaluate
     out_dir = os.path.join(dataset.model_path, "test/ours_{}".format(iteration), mesh_dir)
-    scan = dataset.model_path.split("/")[-1][4:]
+    # scan = dataset.model_path.split("/")[-1][4:]
+    scan = scan_id
     
     cmd = f"python dtu_eval/eval.py --data {aligned_mesh_file} --scan {scan} --mode mesh --dataset_dir {DTU_PATH} --vis_out_dir {out_dir}"
     print(cmd)
@@ -200,7 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument('--scan_id', type=str,  help='scan id of the input mesh')
+    parser.add_argument('--scan_id', type=str,  default='65', help='scan id of the input mesh')
     parser.add_argument('--DTU', type=str,  default='dtu_eval/Offical_DTU_Dataset', help='path to the GT DTU point clouds')
     
     args = get_combined_args(parser)
@@ -211,4 +213,4 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     torch.cuda.set_device(torch.device("cuda:0"))
     
-    evaluate_mesh(model.extract(args), args.iteration, args.DTU)
+    evaluate_mesh(model.extract(args), args.iteration, args.DTU, scan_id=args.scan_id)

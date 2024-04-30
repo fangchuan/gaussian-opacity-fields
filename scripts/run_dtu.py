@@ -18,7 +18,7 @@ dry_run = False
 jobs = list(zip(scenes, factors))
 
 def train_scene(gpu, scene, factor):
-    cmd = f"OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES={gpu} python train.py -s DTU_mask/scan{scene} -m {output_dir}/scan{scene} -r {factor} --use_decoupled_appearance --lambda_distortion 1000"
+    cmd = f"OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES={gpu} python train.py -s /mnt/nas_3dv/hdd1/datasets/DTU/data_DTU/dtu_scan{scene} -m {output_dir}/scan{scene} -r {factor} --use_decoupled_appearance --lambda_distortion 1000"
     print(cmd)
     if not dry_run:
         os.system(cmd)
@@ -36,7 +36,7 @@ def train_scene(gpu, scene, factor):
         os.system(cmd)
     
     # evaluate
-    cmd = f"OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES={gpu} python evaluate_dtu_mesh.py -m {output_dir}/scan{scene} --iteration 30000"
+    cmd = f"OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES={gpu} python evaluate_dtu_mesh.py -m {output_dir}/scan{scene} --iteration 30000 --scan_id {scene}"
     print(cmd)
     if not dry_run:
         os.system(cmd)

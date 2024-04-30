@@ -17,9 +17,9 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "tsdf")
 
     makedirs(render_path, exist_ok=True)
-    o3d_device = o3d.core.Device("CUDA:0")
+    o3d_device = o3d.core.Device("CPU:0")
     
-    voxel_size = 0.002
+    voxel_size = 0.004
     alpha_thres=0.5
     
     vbg = o3d.t.geometry.VoxelBlockGrid(
@@ -38,7 +38,7 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
             
             depth = rendering[6:7, :, :]
             alpha = rendering[7:8, :, :]
-            rgb = rendering[:3, :, :]
+            rgb = rendering[:3, :, :] * 255
             
             if view.gt_alpha_mask is not None:
                 depth[(view.gt_alpha_mask < 0.5)] = 0
@@ -58,14 +58,14 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
             o3d_color = o3d_color.to(o3d_device)
             o3d_depth = o3d_depth.to(o3d_device)
 
-            intrinsic = o3d.core.Tensor(intrinsic.intrinsic_matrix, o3d.core.Dtype.Float64)#.to(o3d_device)
-            extrinsic = o3d.core.Tensor(extrinsic, o3d.core.Dtype.Float64)#.to(o3d_device)
+            intrinsic = o3d.core.Tensor(intrinsic.intrinsic_matrix, o3d.core.Dtype.Float64).to(o3d_device)
+            extrinsic = o3d.core.Tensor(extrinsic, o3d.core.Dtype.Float64).to(o3d_device)
             
             frustum_block_coords = vbg.compute_unique_block_coordinates(
-                o3d_depth, intrinsic, extrinsic, 1.0, 6.0)
+                o3d_depth, intrinsic, extrinsic, depth_scale=1.0, depth_max=20.0, trunc_voxel_multiplier=8.0)
 
             vbg.integrate(frustum_block_coords, o3d_depth, o3d_color, intrinsic,
-                          intrinsic, extrinsic, 1.0, 6.0)
+                          intrinsic, extrinsic, depth_scale=1.0, depth_max=20.0, trunc_voxel_multiplier=8.0)
             
         mesh = vbg.extract_triangle_mesh().to_legacy()
         

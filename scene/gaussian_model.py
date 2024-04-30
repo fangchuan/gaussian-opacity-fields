@@ -136,9 +136,11 @@ class GaussianModel:
         opacity = self.opacity_activation(self._opacity)
         # apply 3D filter
         scales = self.get_scaling
-        
+        # print(f'scales shape: {scales.shape}, max: {scales.max()}, min: {scales.min()}')
         scales_square = torch.square(scales)
+        # print(f'scales_square shape: {scales_square.shape}, max: {scales_square.max()}, min: {scales_square.min()}')
         det1 = scales_square.prod(dim=1)
+        # print(f'det1 shape: {det1.shape}, max: {det1.max()}, min: {det1.min()}')
         
         scales_after_square = scales_square + torch.square(self.filter_3D) 
         det2 = scales_after_square.prod(dim=1) 
