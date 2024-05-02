@@ -19,13 +19,16 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
     makedirs(render_path, exist_ok=True)
     o3d_device = o3d.core.Device("CPU:0")
     
-    voxel_size = 0.004
+    voxel_size = 0.002
     alpha_thres=0.5
     
     vbg = o3d.t.geometry.VoxelBlockGrid(
-            attr_names=('tsdf', 'weight', 'color'),
-            attr_dtypes=(o3c.float32, o3c.float32, o3c.float32),
-            attr_channels=((1), (1), (3)),
+            # attr_names=('tsdf', 'weight', 'color'),
+            # attr_dtypes=(o3c.float32, o3c.float32, o3c.float32),
+            attr_names=('tsdf', 'weight'),
+            attr_dtypes=(o3c.float32, o3c.float32),
+            # attr_channels=((1), (1), (3)),
+            attr_channels=((1), (1)),
             voxel_size=voxel_size,
             block_resolution=16,
             block_count=50000,
@@ -38,12 +41,16 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
             
             depth = rendering[6:7, :, :]
             alpha = rendering[7:8, :, :]
-            rgb = rendering[:3, :, :] * 255
+            rgb = rendering[:3, :, :]
             
             if view.gt_alpha_mask is not None:
                 depth[(view.gt_alpha_mask < 0.5)] = 0
             
             depth[(alpha < alpha_thres)] = 0
+            # depth[depth>10.0] = 0
+            print(f'max depth: {np.max(depth.permute(1,2,0).cpu().numpy())}')
+            # if torch.max(depth) < 1e-3:
+            #     continue
             
             intrinsic=o3d.camera.PinholeCameraIntrinsic(width=view.image_width, 
                     height=view.image_height, 
@@ -62,10 +69,12 @@ def tsdf_fusion(model_path, name, iteration, views, gaussians, pipeline, backgro
             extrinsic = o3d.core.Tensor(extrinsic, o3d.core.Dtype.Float64).to(o3d_device)
             
             frustum_block_coords = vbg.compute_unique_block_coordinates(
-                o3d_depth, intrinsic, extrinsic, depth_scale=1.0, depth_max=20.0, trunc_voxel_multiplier=8.0)
+                o3d_depth, intrinsic, extrinsic, depth_scale=1.0, depth_max=6.0, trunc_voxel_multiplier=8.0)
 
-            vbg.integrate(frustum_block_coords, o3d_depth, o3d_color, intrinsic,
-                          intrinsic, extrinsic, depth_scale=1.0, depth_max=20.0, trunc_voxel_multiplier=8.0)
+            # vbg.integrate(frustum_block_coords, o3d_depth, o3d_color, intrinsic,
+            #               intrinsic, extrinsic, depth_scale=1.0, depth_max=10.0, trunc_voxel_multiplier=8.0)
+            vbg.integrate(frustum_block_coords, o3d_depth, 
+                intrinsic, extrinsic, depth_scale=1.0, depth_max=6.0, trunc_voxel_multiplier=8.0)
             
         mesh = vbg.extract_triangle_mesh().to_legacy()
         

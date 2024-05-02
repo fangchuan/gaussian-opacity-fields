@@ -11,6 +11,7 @@ from arguments import ModelParams, PipelineParams, get_combined_args
 from gaussian_renderer import GaussianModel
 import trimesh
 from skimage.morphology import binary_dilation, disk
+from PIL import Image
 
 def best_fit_transform(A, B):
     '''
@@ -86,10 +87,11 @@ def cull_mesh(cameras, mesh):
     
     sampled_masks = []
     
-    for camera in cameras:
+    for idx, camera in enumerate(cameras):
         c2w = (camera.world_view_transform.T).inverse()
         w2c = torch.inverse(c2w).cuda()
         mask = camera.gt_alpha_mask
+        # Image.fromarray((mask[0,:,:].cpu().numpy()*255).astype(np.uint8)).save(f'mask_{idx}.png')
         
         intrinsic = torch.eye(4)
         intrinsic[0, 0] = camera.focal_x
@@ -111,8 +113,9 @@ def cull_mesh(cameras, mesh):
             valid = ((pix_coords > -1. ) & (pix_coords < 1.)).all(dim=-1).float()
             
             # dialate mask similar to unisurf
-            maski = mask[0, :, :].cpu().numpy().astype(np.float32) / 256.
+            maski = mask[0, :, :].cpu().numpy().astype(np.float32)
             maski = torch.from_numpy(binary_dilation(maski, disk(6))).float()[None, None].cuda()
+            # Image.fromarray((maski[0, 0].cpu().numpy()*255).astype(np.uint8)).save(f'maski_{idx}.png')
             
             sampled_mask = F.grid_sample(maski, pix_coords[None, None], mode='nearest', padding_mode='zeros', align_corners=True)[0, -1, 0]
 
